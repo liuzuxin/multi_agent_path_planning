@@ -52,7 +52,7 @@ python3 cbs.py input.yaml output.yaml
 ```
 
 ### Results
-To visualize the generated step by step results:
+To visualize the generated step by step results using right arrow key:
 ```
 python3 ../test.py input.yaml output.yaml
 ```
