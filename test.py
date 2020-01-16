@@ -42,12 +42,14 @@ def step():
         steps += 1
         for agent_name, trajectories in schedule.items():
             poses[agent_name] = getState(steps, trajectories)
+            
             #save agent history to trajectory
             if agent_name not in traj:
                 traj[agent_name] = list()
             traj[agent_name].append(poses[agent_name])
+            #print(traj)
         # read the poses for each agent at timestamp t and render it
-        img = env.render(poses, dynamic_obs = dynamic_obs)
+        img = env.render(poses, traj = traj, dynamic_obs = dynamic_obs)
         window.show_img(img)
     else: 
         print("done")

@@ -20,7 +20,7 @@ class Goal():
       fill_coords(img, point_in_rect(0.2, 0.8, 0.2, 0.8), self.color)
 
 class Agent():
-    def __init__(self, name):
+    def __init__(self, name = None):
         self.color = np.array([0,255,0])
         self.name = name
         self.font = cv2.FONT_HERSHEY_SIMPLEX  
@@ -39,7 +39,22 @@ class Dynamic_obs():
         self.color = np.array([0,0,255])
         self.name = ''
     def render(self, img):
-      fill_coords(img, point_in_triangle((0.5, 0.15), (0.9, 0.85), (0.1, 0.85),), self.color)     
+      fill_coords(img, point_in_triangle((0.5, 0.15), (0.9, 0.85), (0.1, 0.85),), self.color)  
+     
+class Trajectory():
+    def __init__(self, dir):
+        self.color = np.array([0,0,0])
+        self.name = ''
+        self.dir = dir
+    def render(self, img):
+        if self.dir ==1 :
+            fill_coords(img, point_in_line(0.5, 0.5, 0.5, 1, 0.01), self.color)
+        elif self.dir ==2 :
+            fill_coords(img, point_in_line(0.5, 0.5, 1, 0.5, 0.01), self.color)
+        elif self.dir ==3 :
+            fill_coords(img, point_in_line(0.5, 0.5, 0, 0.5, 0.01), self.color)
+        elif self.dir ==2 :
+            fill_coords(img, point_in_line(0.5, 0.5, 0.5, 0, 0.01), self.color)
 
 class GridEnv:
   """Custom Environment that follows gym interface"""
@@ -62,7 +77,7 @@ class GridEnv:
     self.row = map["map"]["dimensions"][0] 
     self.col = map["map"]["dimensions"][1]
    
-    self.grid = [None]*self.row*self.col
+    self.grid = None
     
     self.img = np.ones(shape=(self.row*self.tilesize, self.col * self.tilesize, 3), dtype=np.uint8)*255
     
@@ -74,38 +89,39 @@ class GridEnv:
   def reset(self):
     self.time=0
     
-  def render_tile(self, obj, agent_here):
+  def render_tile(self, objs):
       tile = np.ones(shape=(self.tilesize, self.tilesize, 3), dtype=np.uint8)*255
-      if obj:
-          obj.render(tile)
-      if agent_here:
-          Agent(agent_here).render(tile)          
+      if objs:
+          for obj in objs:
+              obj.render(tile)      
       return tile
       
   def render(self, poses, traj = None, dynamic_obs = None):
-      self.grid = [None]*self.row*self.col
+      self.grid = [[] for x in range(self.row*self.col)]
       self.draw_goal()
       self.draw_static_obstacle()
-      #self.draw_agents(poses)
-      if traj:
-          self.draw_trajectory(traj)
       if dynamic_obs:
           self.draw_dynamic_obs(dynamic_obs)
+      if traj:
+          self.draw_trajectory(traj)
+      self.draw_agents(poses)
+      #print(self.grid)
       for i in range(self.row):
           for j in range(self.col):              
-              obj = self.grid[j*self.row+i]
+              objs = self.grid[j*self.row+i]
               #determine if agent is in this grid
-              agent_here = self.check_agent(poses, (j,i))
+              #agent_here = self.check_agent(poses, (j,i))
               
-              tile = self.render_tile(obj, agent_here)
+              tile = self.render_tile(objs)#, agent_here)
               
               xmin = i*self.tilesize
               ymin = j*self.tilesize
               xmax = (i+1)*self.tilesize
               ymax = (j+1)*self.tilesize
               self.img[xmin:xmax, ymin:ymax, :] = tile
+              
       return self.img
-    
+
   def check_agent(self, poses, pos_agent):
       for a_name in poses.keys():
           pos = poses[a_name]
@@ -113,15 +129,22 @@ class GridEnv:
               name = a_name.replace('agent', '')
               return name
       return None
+
   
   def draw_static_obstacle(self):
       for o in self.obstacles:
-          self.grid[o[0]*self.row + o[1]] = Obstacle()
+          self.grid[o[0]*self.row + o[1]].append(Obstacle())
   
   def draw_goal(self):
       for a in self.agents_info:
           pos = a['goal']
-          self.grid[pos[0]*self.row + pos[1]] = Goal()
+          self.grid[pos[0]*self.row + pos[1]].append(Goal())
+          
+  def draw_agents(self, poses):
+      for a_name in poses.keys():
+          pos = poses[a_name]
+          name = a_name.replace('agent', '')
+          self.grid[int(pos[0])*self.row + int(pos[1])].append(Agent(name))
   
   def draw_trajectory(self, traj):
       pass
@@ -132,13 +155,12 @@ class GridEnv:
               if not np.array_equal(trajectory[i], trajectory[i+1]):
                   p1 = trajectory[i]
                   p2 = trajectory[i+1]
-                  fill_coords(self.img, point_in_line((p1[0]+0.5)/self.row, (p1[1]+0.5)/self.row, 
-                                              (p2[0]+0.5)/self.col, (p2[1]+0.5)/self.col, 0.002), (0, 50, 50))
-                 '''
+                  self.grid[int(p1[0])*self.row + int(p1[1])].append(Trajectory(1))  
+                  '''
                        
   def draw_dynamic_obs(self, obs):
       for ob in obs:
-        self.grid[ob[0]*self.row + ob[1]] = Dynamic_obs()
+        self.grid[ob[0]*self.row + ob[1]].append(Dynamic_obs())
 
 
 
