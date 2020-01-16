@@ -67,6 +67,7 @@ if __name__ == "__main__":
   with open(args.schedule) as states_file:
     schedule = yaml.load(states_file, Loader=yaml.FullLoader)["schedule"]
 
+  print(map)
 
   # environment initilization 
   env = GridEnv.GridEnv(map)

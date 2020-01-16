@@ -76,7 +76,7 @@ class GridEnv:
     #initialize canvas   
     self.row = map["map"]["dimensions"][0] 
     self.col = map["map"]["dimensions"][1]
-   
+    
     self.grid = None
     
     self.img = np.ones(shape=(self.row*self.tilesize, self.col * self.tilesize, 3), dtype=np.uint8)*255
@@ -97,6 +97,7 @@ class GridEnv:
       return tile
       
   def render(self, poses, traj = None, dynamic_obs = None):
+      print(self.row, self.col)
       self.grid = [[] for x in range(self.row*self.col)]
       self.draw_goal()
       self.draw_static_obstacle()
