@@ -26,7 +26,7 @@ def getState(t, d):
 def key_handler(event):
     print('pressed', event.key)
     if event.key == 'escape':
-        env.window.close()
+        window.close()
         return
     
     if event.key == 'right':
@@ -47,10 +47,11 @@ def step():
                 traj[agent_name] = list()
             traj[agent_name].append(poses[agent_name])
         # read the poses for each agent at timestamp t and render it
-        env.render(poses, traj, dynamic_obs)
+        img = env.render(poses, dynamic_obs = dynamic_obs)
+        window.show_img(img)
     else: 
         print("done")
-        env.window.close()
+        window.close()
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
@@ -69,7 +70,7 @@ if __name__ == "__main__":
   env = GridEnv.GridEnv(map)
   window = Window('Test')
   window.reg_key_handler(key_handler)
-  env.window = window
+  #env.window = window
   
    #Get the maximum steps in the output solution file
   max_step = 0
@@ -83,7 +84,8 @@ if __name__ == "__main__":
   #dynamic objects test
   dynamic_obs = [np.array([0,2]), np.array([2,2])]
   
-  env.render(poses)
+  img = env.render(poses)
+  window.show_img(img)
   
   #BLocking event loop
   window.show(block = True)
