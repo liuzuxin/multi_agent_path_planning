@@ -41,24 +41,23 @@ class Loop():
     self.max_step = max_step
     self.steps = -1
     self.window = window
+    self.traj = dict()
   
   def step(self):
     dynamic_obs = [np.array([0,2]), np.array([2,2])]
-
     if self.steps < self.max_step:
         self.steps += 1
-        traj = {}
         poses = {}
         for agent_name, trajectories in self.schedule.items():
             poses[agent_name] = getState(self.steps, trajectories)
             
             #save agent history to trajectory
-            if agent_name not in traj:
-                traj[agent_name] = list()
-            traj[agent_name].append(poses[agent_name])
+            if agent_name not in self.traj:
+                self.traj[agent_name] = list()
+            self.traj[agent_name].append(poses[agent_name])
 
         # read the poses for each agent at timestamp t and render it
-        img = self.env.render(poses, traj = traj, dynamic_obs = dynamic_obs)
+        img = self.env.render(poses, traj = self.traj, dynamic_obs = dynamic_obs)
         self.window.show_img(img)
     else: 
         print("done")

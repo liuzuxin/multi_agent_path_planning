@@ -15,6 +15,21 @@ def downsample(img, factor):
 
     return img
 
+def draw_traj(img, p1, p2, color):
+    r = 1
+    x0 = p1[0]
+    y0 = p1[1]
+    x1 = p2[0]
+    y1 = p2[1]
+    xmin = min(x0, x1) - r
+    xmax = max(x0, x1) + r
+    ymin = min(y0, y1) - r
+    ymax = max(y0, y1) + r
+    for i in range(int(xmin), int(xmax)):
+        for j in range(int(ymin), int(ymax)):
+            img[j,i] = color
+    return img
+
 def fill_coords(img, fn, color):
     """
     Fill pixels of an image with coordinates matching a filter function

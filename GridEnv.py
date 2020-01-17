@@ -11,6 +11,7 @@ class Obstacle():
         self.name = ''
     def render(self, img):
       fill_coords(img, point_in_rect(0, 1, 0, 1), self.color)
+      return img      
       
 class Goal():
     def __init__(self):
@@ -18,6 +19,7 @@ class Goal():
         self.name = ''
     def render(self, img):
       fill_coords(img, point_in_rect(0.2, 0.8, 0.2, 0.8), self.color)
+      return img
 
 class Agent():
     def __init__(self, name = None):
@@ -26,7 +28,9 @@ class Agent():
         self.font = cv2.FONT_HERSHEY_SIMPLEX  
     def render(self, img):
       fill_coords(img, point_in_circle(0.5, 0.5, 0.25), self.color)
-      self.add_text(img,self.name)
+      scale = img.shape[0]/96
+      self.add_text(img,self.name, fontScale = scale, thickness = 1)
+      return img
    
     def add_text(self, img, text, fontScale = 1, thickness = 2):
       textsize = cv2.getTextSize(text, self.font, fontScale, thickness)[0]    
@@ -40,21 +44,7 @@ class Dynamic_obs():
         self.name = ''
     def render(self, img):
       fill_coords(img, point_in_triangle((0.5, 0.15), (0.9, 0.85), (0.1, 0.85),), self.color)  
-     
-class Trajectory():
-    def __init__(self, dir):
-        self.color = np.array([0,0,0])
-        self.name = ''
-        self.dir = dir
-    def render(self, img):
-        if self.dir ==1 :
-            fill_coords(img, point_in_line(0.5, 0.5, 0.5, 1, 0.01), self.color)
-        elif self.dir ==2 :
-            fill_coords(img, point_in_line(0.5, 0.5, 1, 0.5, 0.01), self.color)
-        elif self.dir ==3 :
-            fill_coords(img, point_in_line(0.5, 0.5, 0, 0.5, 0.01), self.color)
-        elif self.dir ==2 :
-            fill_coords(img, point_in_line(0.5, 0.5, 0.5, 0, 0.01), self.color)
+      return img
 
 class GridEnv:
   """Custom Environment that follows gym interface"""
@@ -70,98 +60,83 @@ class GridEnv:
     self.agents_info = map["agents"]
     
     #Env constant
-    self.tilesize = 96
+    self.tilesize = 32
     self.font = cv2.FONT_HERSHEY_SIMPLEX    
+    self.traj_color = dict()
     
     #initialize canvas   
     self.row = map["map"]["dimensions"][0]
-    self.col = map["map"]["dimensions"][1]
-    
-    self.grid = None
-    
+    self.col = map["map"]["dimensions"][1]    
     self.img = np.ones(shape=(self.row*self.tilesize, self.col * self.tilesize, 3), dtype=np.uint8)*255
+    self.background = None
+    self.draw_background()
     
     #simulation variable
     self.time = 0
     self.descrip = str(self.time)
 
-
   def reset(self):
     self.time=0
-    
-  def render_tile(self, objs):
-      tile = np.ones(shape=(self.tilesize, self.tilesize, 3), dtype=np.uint8)*255
-      if objs:
-          for obj in objs:
-              obj.render(tile)      
-      return tile
       
-  def render(self, poses, traj = None, dynamic_obs = None):
-      print(self.row, self.col)
-      self.grid = [[] for x in range(self.row*self.col)]
+  def draw_background(self):
       self.draw_goal()
       self.draw_static_obstacle()
+      self.background = self.img.copy()
+      
+  def render(self, poses, traj = None, dynamic_obs = None):
+      self.img = self.background.copy()
+      
       if dynamic_obs:
           self.draw_dynamic_obs(dynamic_obs)
       if traj:
           self.draw_trajectory(traj)
+      
       self.draw_agents(poses)
-      #print(self.grid)
-      for i in range(self.row):
-          for j in range(self.col):              
-              objs = self.grid[j*self.row+i]
-              #determine if agent is in this grid
-              #agent_here = self.check_agent(poses, (j,i))
-              
-              tile = self.render_tile(objs)#, agent_here)
-              
-              xmin = i*self.tilesize
-              ymin = j*self.tilesize
-              xmax = (i+1)*self.tilesize
-              ymax = (j+1)*self.tilesize
-              self.img[xmin:xmax, ymin:ymax, :] = tile
               
       return self.img
-
-  def check_agent(self, poses, pos_agent):
-      for a_name in poses.keys():
-          pos = poses[a_name]
-          if np.array_equal(pos, pos_agent):
-              name = a_name.replace('agent', '')
-              return name
-      return None
-
+  
+  def draw(self, i, j, obj):
+      xmin = i*self.tilesize
+      ymin = j*self.tilesize
+      xmax = (i+1)*self.tilesize
+      ymax = (j+1)*self.tilesize
+      
+      tile = self.img[xmin:xmax, ymin:ymax, :]
+      tile = obj.render(tile)
+      self.img[xmin:xmax, ymin:ymax, :] = tile    
   
   def draw_static_obstacle(self):
       for o in self.obstacles:
-          self.grid[o[0]*self.row + o[1]].append(Obstacle())
+          self.draw(int(o[1]), int(o[0]), Obstacle())
   
   def draw_goal(self):
       for a in self.agents_info:
           pos = a['goal']
-          self.grid[pos[0]*self.row + pos[1]].append(Goal())
+          self.draw(int(pos[1]), int(pos[0]), Goal())
           
   def draw_agents(self, poses):
       for a_name in poses.keys():
           pos = poses[a_name]
           name = a_name.replace('agent', '')
-          self.grid[int(pos[0])*self.row + int(pos[1])].append(Agent(name))
+          self.draw(int(pos[1]), int(pos[0]), Agent(name))
+          
+  def draw_dynamic_obs(self, obs):
+      for ob in obs:
+        self.draw(int(ob[1]), int(ob[0]), Dynamic_obs())
   
   def draw_trajectory(self, traj):
-      pass
-      '''
       for a in traj.keys():
+          if a not in self.traj_color:
+              self.traj_color[a] = np.random.randint(256, size=3) 
           trajectory = traj[a]
           for i in range(len(trajectory)-1):
               if not np.array_equal(trajectory[i], trajectory[i+1]):
                   p1 = trajectory[i]
-                  p2 = trajectory[i+1]
-                  self.grid[int(p1[0])*self.row + int(p1[1])].append(Trajectory(1))  
-                  '''
+                  p2 = trajectory[i+1]                
+                  draw_traj(self.img, ((p1[0]+0.5)*self.tilesize, (p1[1]+0.5)*self.tilesize), 
+                            ((p2[0]+0.5)*self.tilesize,(p2[1]+0.5)*self.tilesize), self.traj_color[a])
+                  
                        
-  def draw_dynamic_obs(self, obs):
-      for ob in obs:
-        self.grid[ob[0]*self.row + ob[1]].append(Dynamic_obs())
 
 
 
