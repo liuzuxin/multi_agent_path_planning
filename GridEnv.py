@@ -74,7 +74,7 @@ class GridEnv:
     self.font = cv2.FONT_HERSHEY_SIMPLEX    
     
     #initialize canvas   
-    self.row = map["map"]["dimensions"][0] 
+    self.row = map["map"]["dimensions"][0]
     self.col = map["map"]["dimensions"][1]
     
     self.grid = None

@@ -30,36 +30,47 @@ def key_handler(event):
         return
     
     if event.key == 'right':
-        step()
-        
-def step():
-    global steps
-    global max_step
-    global poses
-    global dynamic_obs
+        loop.step()
+
+
+class Loop():
+  def __init__(self, args, window, env, schedule, max_step):
     
-    if steps < max_step:
-        steps += 1
-        for agent_name, trajectories in schedule.items():
-            poses[agent_name] = getState(steps, trajectories)
+    self.env = env
+    self.schedule = schedule
+    self.max_step = max_step
+    self.steps = -1
+    self.window = window
+  
+  def step(self):
+    dynamic_obs = [np.array([0,2]), np.array([2,2])]
+
+    if self.steps < self.max_step:
+        self.steps += 1
+        traj = {}
+        poses = {}
+        for agent_name, trajectories in self.schedule.items():
+            poses[agent_name] = getState(self.steps, trajectories)
             
             #save agent history to trajectory
             if agent_name not in traj:
                 traj[agent_name] = list()
             traj[agent_name].append(poses[agent_name])
-            #print(traj)
+
         # read the poses for each agent at timestamp t and render it
-        img = env.render(poses, traj = traj, dynamic_obs = dynamic_obs)
-        window.show_img(img)
+        img = self.env.render(poses, traj = traj, dynamic_obs = dynamic_obs)
+        self.window.show_img(img)
     else: 
         print("done")
-        window.close()
+        self.window.close()
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.add_argument("map", help="input file containing map")
   parser.add_argument("schedule", help="schedule for agents")
+  #parser.add_argument("step", help="use keyboard to control the step")
   args = parser.parse_args()
+
 
   with open(args.map) as map_file:
     map = yaml.load(map_file, Loader=yaml.FullLoader)
@@ -67,7 +78,11 @@ if __name__ == "__main__":
   with open(args.schedule) as states_file:
     schedule = yaml.load(states_file, Loader=yaml.FullLoader)["schedule"]
 
-  print(map)
+
+   #Get the maximum steps in the output solution file
+  max_step = 0
+  for agent_name, trajectories in schedule.items():
+    max_step = max(max_step, trajectories[-1]["t"])
 
   # environment initilization 
   env = GridEnv.GridEnv(map)
@@ -75,20 +90,7 @@ if __name__ == "__main__":
   window.reg_key_handler(key_handler)
   #env.window = window
   
-   #Get the maximum steps in the output solution file
-  max_step = 0
-  for agent_name, trajectories in schedule.items():
-    max_step = max(max_step, trajectories[-1]["t"])
-  
-  #visualize world without agents
-  steps = -1
-  poses = dict()
-  traj = dict()
-  #dynamic objects test
-  dynamic_obs = [np.array([0,2]), np.array([2,2])]
-  
-  img = env.render(poses)
-  window.show_img(img)
+  loop=Loop(args, window, env, schedule, max_step)
   
   #BLocking event loop
   window.show(block = True)
