@@ -1,0 +1,6 @@
+map:
+    dimensions: [3, 3]
+    obstacles:
+    - !!python/tuple [0, 1]
+    - !!python/tuple [2, 1]
+

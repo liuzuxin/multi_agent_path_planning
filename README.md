@@ -54,7 +54,7 @@ python3 cbs.py input.yaml output.yaml
 ### Results
 To visualize the generated step by step results using right arrow key:
 ```
-python3 ../test.py input.yaml output.yaml
+python3 ../test.py map2.yaml agents2.yaml schedule2.yaml
 ```
 
 To visualize the generated results:

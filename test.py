@@ -9,18 +9,8 @@ import planningEnv
 import GridEnv
 import time
 from window import *
+from planner import Planner
 
-
-def getState(t, d):
-    idx = 0
-    while idx < len(d) and d[idx]["t"] < t:
-      idx += 1
-    if idx == 0:
-      return np.array([float(d[0]["x"]), float(d[0]["y"])])
-    elif idx < len(d):
-      return np.array([float(d[idx]["x"]), float(d[idx]["y"])])
-    else:
-      return np.array([float(d[-1]["x"]), float(d[-1]["y"])])
 
 
 def key_handler(event):
@@ -34,7 +24,7 @@ def key_handler(event):
 
 
 class Loop():
-  def __init__(self, args, window, env, schedule, max_step):
+  def __init__(self, window, env, schedule, max_step):
     
     self.env = env
     self.schedule = schedule
@@ -42,22 +32,25 @@ class Loop():
     self.steps = -1
     self.window = window
     self.traj = dict()
+    self.agents_num = env.agents_num
+
+    self.planner = Planner(env, schedule)
+
+    self.poses = self.env.agents_pose
   
   def step(self):
     dynamic_obs = [np.array([0,2]), np.array([2,2])]
+    obs = None
+
     if self.steps < self.max_step:
         self.steps += 1
-        poses = {}
-        for agent_name, trajectories in self.schedule.items():
-            poses[agent_name] = getState(self.steps, trajectories)
-            
-            #save agent history to trajectory
-            if agent_name not in self.traj:
-                self.traj[agent_name] = list()
-            self.traj[agent_name].append(poses[agent_name])
 
-        # read the poses for each agent at timestamp t and render it
-        img = self.env.render(poses, traj = self.traj, dynamic_obs = dynamic_obs)
+        #action = ['v']*self.agents_num
+        # Comment the code below and uncomment the code above to try.
+        action = self.planner.plan(self.poses, self.steps, obs=obs)
+
+        self.poses, obs = self.env.step(action)
+        img = self.env.render(show_traj = True, dynamic_obs = dynamic_obs)
         self.window.show_img(img)
     else: 
         print("done")
@@ -65,7 +58,8 @@ class Loop():
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
-  parser.add_argument("map", help="input file containing map")
+  parser.add_argument("map", help="static map info")
+  parser.add_argument("agents", help="agents task config file")
   parser.add_argument("schedule", help="schedule for agents")
   #parser.add_argument("step", help="use keyboard to control the step")
   args = parser.parse_args()
@@ -73,6 +67,9 @@ if __name__ == "__main__":
 
   with open(args.map) as map_file:
     map = yaml.load(map_file, Loader=yaml.FullLoader)
+
+  with open(args.agents) as agents_file:
+    agents_info = yaml.load(agents_file, Loader=yaml.FullLoader)["agents"]
 
   with open(args.schedule) as states_file:
     schedule = yaml.load(states_file, Loader=yaml.FullLoader)["schedule"]
@@ -84,12 +81,12 @@ if __name__ == "__main__":
     max_step = max(max_step, trajectories[-1]["t"])
 
   # environment initilization 
-  env = GridEnv.GridEnv(map)
+  env = GridEnv.GridEnv(map, agents_info)
   window = Window('Test')
   window.reg_key_handler(key_handler)
   #env.window = window
   
-  loop=Loop(args, window, env, schedule, max_step)
+  loop=Loop( window, env, schedule, max_step)
   
   #BLocking event loop
   window.show(block = True)
