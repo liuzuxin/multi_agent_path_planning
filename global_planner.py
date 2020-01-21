@@ -4,6 +4,9 @@ import numpy as np
 class GlobalPlanner():
 	def __init__(self, map):  
 		self.map = map
+		#initialize canvas   
+	    self.row = map["map"]["dimensions"][1]
+	    self.col = map["map"]["dimensions"][0]  
 		self.steps = 0
 		self.poses = {}
 		for agent_name, trajectories in self.schedule.items():

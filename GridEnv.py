@@ -84,13 +84,13 @@ class GridEnv:
       #Env constant
       self.tilesize = 32
       self.font = cv2.FONT_HERSHEY_SIMPLEX    
-      self.visibility = 1
+      self.visibility = 2
       self.traj_color = np.random.randint(256, size=(self.agents_num,3))
       
       #initialize canvas   
       self.row = map["map"]["dimensions"][1]
       self.col = map["map"]["dimensions"][0]    
-      self.img = np.ones(shape=(self.row*self.tilesize, self.col * self.tilesize, 3), dtype=np.uint8)*255
+      self.background_img = np.ones(shape=(self.row*self.tilesize, self.col * self.tilesize, 3), dtype=np.uint8)*255
       
       #simulation variable
       self.time = 0
@@ -98,67 +98,22 @@ class GridEnv:
       self.traj = []
       
       self.background_grid = np.ones(shape=(self.row, self.col), dtype = int)
-      self.grid = None
+      self.current_grid = None
       
       for i in range(self.agents_num):
         self.traj.append([self.agents_pose[i]])
       
-      self.background = None
-      self.draw_background()
+      # Draw the goal and static obstacles on the background image
+      self.background_img = self.draw_background(self.background_img)
+      self.background_grid = self.update_background_grid(self.background_grid)
 
   def reset(self):
       self.time=0
       self.traj = []
       for i in range(self.agents_num):
         self.traj.append([self.agents_pose[i]])
-      self.img = np.ones(shape=(self.row*self.tilesize, self.col * self.tilesize, 3), dtype=np.uint8)*255
-      self.background = None
-      self.draw_background()
-      
-  def step(self, action):
-      '''
-      Parameters:
-      ----------
-        @param [list] action : Agents action list for the current step. ['^','v','<','>','.']
-
-      Return the list of agents state and list of observations
-      '''
-      assert (len(action)==self.agents_num), "The length of action list should be the same as the agents number"
-      
-      #TODO: let the dynamic obstacle move first
-      self.move_dynamic_obs()
-
-      # Move the agents one by one
-      for i in range(self.agents_num):
-        act = action[i]
-        pose = self.agents_pose[i]
-        pose_new = self.move_agents(pose, act)
-        if (pose_new== np.array([-1,-1])).all():
-          print("Collision with obstacles on agent ",i,"!!!")
-          continue
-        else:
-          self.agents_pose[i] = pose_new
-      # Check if the agents collide with each other
-      for i in range(self.agents_num):
-        pose = self.agents_pose[i]
-        if self.agent_conflict(pose, i):
-          print("Agents ",i," collide with other agents!")
-        self.traj[i].append(self.agents_pose[i])
-      
-      observations = None # TODO, return the surrounding image of each agent
-
-      return self.agents_pose, observations
-
-  def get_obs(self):
-    observation = list()
-    for i in range(self.agents_num):
-        pos = self.agents_pose[i]
-        xmin = max(int(pos[1]-self.visibility), 0)
-        ymin = max(int(pos[0]-self.visibility), 0)
-        xmax = min(int(pos[1]+1+self.visibility), self.row)
-        ymax = min(int(pos[0]+1+self.visibility), self.col)
-        observation.append(self.grid[xmin:xmax, ymin:ymax])
-    return observation
+      self.background_img = np.ones(shape=(self.row*self.tilesize, self.col * self.tilesize, 3), dtype=np.uint8)*255
+      self.background_img = self.draw_background(self.background_img)
 
   def render(self, show_traj = False, dynamic_obs = None):
       '''
@@ -169,17 +124,17 @@ class GridEnv:
 
       Return the rendered image.
       '''
-      self.img = self.background.copy()
+      img = self.background_img.copy()
       
       if dynamic_obs:
-          self.draw_dynamic_obs(dynamic_obs)
+          self.draw_dynamic_obs(img, dynamic_obs)
       if show_traj:
-          self.draw_trajectory()
+          self.draw_trajectory(img)
       
-      self.draw_agents()
-      self.draw_obs()
+      self.draw_agents(img)
+      self.draw_obs(img)
 
-      return self.img
+      return img
   
   def agent_conflict(self, pose, idx):
       '''
@@ -228,7 +183,7 @@ class GridEnv:
       pose_new[0] = max(0, min(self.col-1, pose_new[0]) )
       pose_new[1] = max(0, min(self.row-1, pose_new[1]) )
 
-      color = self.img[pose_new[1]*self.tilesize,pose_new[0]*self.tilesize]
+      color = self.background_img[pose_new[1]*self.tilesize,pose_new[0]*self.tilesize]
       
       # Hit the obstacles in the map
       if (color == OBSTACLE_COLOR).all():
@@ -236,39 +191,62 @@ class GridEnv:
       else:
         return pose_new
 
-  def draw_background(self):
-      self.draw_goal()
-      self.draw_static_obstacle()
-      self.background = self.img.copy()
+  def get_obs(self, grid_map):
+    # Get the observation of each agent on the current grid map
+    observation = list()
+    for i in range(self.agents_num):
+        pos = self.agents_pose[i]
+        xmin = max(int(pos[1]-self.visibility), 0)
+        ymin = max(int(pos[0]-self.visibility), 0)
+        xmax = min(int(pos[1]+1+self.visibility), self.row)
+        ymax = min(int(pos[0]+1+self.visibility), self.col)
+        observation.append(grid_map[xmin:xmax, ymin:ymax])
+    return observation
 
+  def update_background_grid(self, grid_map):
+      for o in self.obstacles:
+          grid_map[int(o[1])][int(o[0])] = OBJECT_TO_IDX["obstacle"]
+      return grid_map
 
-  def draw(self, i, j, obj, length = 1):
+  def draw_background(self, img):
+      img = self.draw_goal(img)
+      img = self.draw_static_obstacle(img)
+      return img
+
+  def draw(self, img, i, j, obj, length = 1):
       xmin = i*self.tilesize
       ymin = j*self.tilesize
       xmax = (i+length)*self.tilesize
       ymax = (j+length)*self.tilesize
       
-      tile = self.img[xmin:xmax, ymin:ymax, :]
+      tile = img[xmin:xmax, ymin:ymax, :]
       tile = obj.render(tile)
-      self.img[xmin:xmax, ymin:ymax, :] = tile    
+      img[xmin:xmax, ymin:ymax, :] = tile
+      return img
   
-  def draw_static_obstacle(self):
+  def draw_static_obstacle(self, img):
       for o in self.obstacles:
-          self.draw(int(o[1]), int(o[0]), Obstacle())
-          self.background_grid[int(o[1])][int(o[0])] = 2
+          img = self.draw(img, int(o[1]), int(o[0]), Obstacle())
+      return img
   
-  def draw_goal(self):
+  def draw_goal(self, img):
       for goal in self.agents_goal:
-          self.draw(int(goal[1]), int(goal[0]), Goal())
-          self.background_grid[int(goal[1])][int(goal[0])] = 3
-          
-  def draw_agents(self):
+          img = self.draw(img, int(goal[1]), int(goal[0]), Goal())
+      return img
+
+  def draw_agents(self, img):
       for i in range(self.agents_num):
           pos = self.agents_pose[i]
           name = str(i)
-          self.draw(int(pos[1]), int(pos[0]), Agent(name))
-
-  def draw_obs(self):
+          img = self.draw(img, int(pos[1]), int(pos[0]), Agent(name))
+      return img
+          
+  def draw_dynamic_obs(self, img, obs):
+      for ob in obs:
+        img = self.draw(img, int(ob[1]), int(ob[0]), Dynamic_obs())
+      return img
+  
+  def draw_obs(self, img):
       for i in range(self.agents_num):
           pos = self.agents_pose[i]
 
@@ -277,29 +255,20 @@ class GridEnv:
           xmax = min(int(pos[1]+1+self.visibility)*self.tilesize, self.tilesize*(self.row+1))
           ymax = min(int(pos[0]+1+self.visibility)*self.tilesize, self.tilesize*(self.col+1))
 
-          tile = self.img[xmin:xmax, ymin:ymax, :]
+          tile = img[xmin:xmax, ymin:ymax, :]
           tile = highlight_img(tile)
-          self.img[xmin:xmax, ymin:ymax, :] = tile        
+          img[xmin:xmax, ymin:ymax, :] = tile
+      return img  
 
-  def draw_agents_save(self, poses):
-      for a_name in poses.keys():
-          pos = poses[a_name]
-          name = a_name.replace('agent', '')
-          self.draw(int(pos[1]), int(pos[0]), Agent(name))
-          
-  def draw_dynamic_obs(self, obs):
-      for ob in obs:
-        self.draw(int(ob[1]), int(ob[0]), Dynamic_obs())
-  
-  def draw_trajectory(self):
-      print("draw trajectory, length: ", len(self.traj))
+  def draw_trajectory(self, img):
+      #print("draw trajectory, length: ", len(self.traj))
       for idx in range(self.agents_num):
           trajectory = self.traj[idx]
           for i in range(len(trajectory)-1):
               if not np.array_equal(trajectory[i], trajectory[i+1]):
                   p1 = trajectory[i]
                   p2 = trajectory[i+1]                
-                  draw_traj(self.img, ((p1[0]+0.5)*self.tilesize, (p1[1]+0.5)*self.tilesize), 
+                  img = draw_traj(img, ((p1[0]+0.5)*self.tilesize, (p1[1]+0.5)*self.tilesize), 
                             ((p2[0]+0.5)*self.tilesize,(p2[1]+0.5)*self.tilesize), self.traj_color[idx])
 
   def get_agents_info(self, agents_info):
@@ -316,8 +285,7 @@ class GridEnv:
         agents_name.append(agent["name"])
 
       return agents_num, agents_pose, agents_goal, agents_name
-                       
-      
+                         
   def step(self, action):
       '''
       Parameters:
@@ -328,7 +296,7 @@ class GridEnv:
       '''
       assert (len(action)==self.agents_num), "The length of action list should be the same as the agents number"
       
-      self.grid = self.background_grid.copy()
+      self.current_grid = self.background_grid.copy()
       
       #TODO: let the dynamic obstacle move first
       self.move_dynamic_obs()
@@ -344,7 +312,8 @@ class GridEnv:
         else:
           self.agents_pose[i] = pose_new
         pos = self.agents_pose[i]
-        self.grid[int(pos[1])][int(pos[0])] = 4
+        # update the agent info on current grid map
+        self.current_grid [int(pos[1])][int(pos[0])] = OBJECT_TO_IDX["agent"]
           
       # Check if the agents collide with each other
       for i in range(self.agents_num):
@@ -353,8 +322,10 @@ class GridEnv:
           print("Agents ",i," collide with other agents!")
         self.traj[i].append(self.agents_pose[i])
       
-      observations = self.get_obs()
-      print(observations)
+      observations = self.get_obs(self.current_grid)
+      print("grid size: ", self.current_grid .shape)
+      print("img size: ", self.background_img.shape)
+      print("Agent 1's observations: ", observations[1])
       
       return self.agents_pose, observations
 
