@@ -94,6 +94,9 @@ class GridEnv:
       self.traj = []
       for i in range(self.agents_num):
         self.traj.append([self.agents_pose[i]])
+      self.img = np.ones(shape=(self.row*self.tilesize, self.col * self.tilesize, 3), dtype=np.uint8)*255
+      self.background = None
+      self.draw_background()
       
   def step(self, action):
       '''
@@ -126,7 +129,7 @@ class GridEnv:
         self.traj[i].append(self.agents_pose[i])
       
       observations = None # TODO, return the surrounding image of each agent
-      
+
       return self.agents_pose, observations
 
 
@@ -210,6 +213,10 @@ class GridEnv:
       self.draw_static_obstacle()
       self.background = self.img.copy()
 
+  def get_background():
+
+      pass
+      return self.background
   def draw(self, i, j, obj):
       xmin = i*self.tilesize
       ymin = j*self.tilesize

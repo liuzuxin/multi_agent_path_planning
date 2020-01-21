@@ -39,7 +39,7 @@ class Loop():
     self.poses = self.env.agents_pose
   
   def step(self):
-    dynamic_obs = [np.array([0,2]), np.array([2,2])]
+    dynamic_obs = [np.array([0,2]), np.array([4,1])]
     obs = None
 
     if self.steps < self.max_step:
