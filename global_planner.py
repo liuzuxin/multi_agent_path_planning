@@ -42,8 +42,10 @@ class A_star():
 
 	def reset(self, map):
 		self.open_list = []
-	    self.closed_map = np.zeros(map.shape)
 		self.set_map(map)
+		# 初始化的时候就把obstacle设置为closed就可。
+	    self.closed_map = np.zeros(map.shape)
+
 
 	def set_map(self, map):
 		self.map = map  
