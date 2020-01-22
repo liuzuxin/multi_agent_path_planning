@@ -42,7 +42,8 @@ class GridEnv:
       
       #initialize canvas   
       self.row = map["map"]["dimensions"][1]
-      self.col = map["map"]["dimensions"][0]    
+      self.col = map["map"]["dimensions"][0]
+      print("row: ", self.row, " col: ", self.col)
       self.background_img = np.ones(shape=(self.row*self.tilesize, self.col * self.tilesize, 3), dtype=np.uint8)*255
       self.renderer = Renderer(self.row, self.col, self.tilesize, self.traj_color)
 
@@ -185,7 +186,7 @@ class GridEnv:
       ----------
         @param [list] action : Agents action list for the current step. ['^','v','<','>','.']
 
-      Return the list of agents state and list of observations
+      Return the list of agents pose (array), list of observations (array) and static map (array)
       '''
       assert (len(action)==self.agents_num), "The length of action list should be the same as the agents number"
       
@@ -220,6 +221,6 @@ class GridEnv:
       print("img size: ", self.background_img.shape)
       print("Agent 1's observations: ", observations[1])
       
-      return self.agents_pose, observations
+      return self.agents_pose, observations, self.background_grid
 
 

@@ -37,10 +37,12 @@ class Loop():
     self.planner = Planner(env, schedule)
 
     self.poses = self.env.agents_pose
+    self.goals = self.env.agents_goal
   
   def step(self):
     dynamic_obs = [np.array([0,2]), np.array([4,1])]
     obs = None
+    static_map = None
 
     if self.steps < self.max_step:
         self.steps += 1
@@ -49,7 +51,7 @@ class Loop():
         # Comment the code below and uncomment the code above to try.
         action = self.planner.plan(self.poses, self.steps, obs=obs)
 
-        self.poses, obs = self.env.step(action)
+        self.poses, obs, static_map = self.env.step(action)
         img = self.env.render(show_traj = True, dynamic_obs = dynamic_obs)
         self.window.show_img(img)
     else: 
