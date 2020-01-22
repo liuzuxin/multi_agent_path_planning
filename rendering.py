@@ -1,134 +1,120 @@
-import math
-import numpy as np
+from utils import *
 
-def downsample(img, factor):
-    """
-    Downsample an image along both dimensions by some factor
-    """
+OBSTACLE_COLOR = np.array([255,0,0])
+GOAL_COLOR = np.array([255,255,0])
+AGENT_COLOR = np.array([0,255,0])
+DYNAMIC_OBS_COLOR = np.array([0,0,255])
+FREESPACE_COLOR = np.array([255,255,255])
 
-    assert img.shape[0] % factor == 0
-    assert img.shape[1] % factor == 0
+class Renderer():
+    def __init__(self, row, col, tilesize, traj_color):
+        self.row = row
+        self.col = col
+        self.tilesize = tilesize
+        self.traj_color = traj_color
 
-    img = img.reshape([img.shape[0]//factor, factor, img.shape[1]//factor, factor, 3])
-    img = img.mean(axis=3)
-    img = img.mean(axis=1)
+    def draw_background(self, img, agents_goal, obstacles):
+        img = self.draw_goal(img, agents_goal)
+        img = self.draw_static_obstacle(img, obstacles)
+        return img
 
-    return img
+    def draw(self, img, i, j, obj, length = 1):
+        xmin = i*self.tilesize
+        ymin = j*self.tilesize
+        xmax = (i+length)*self.tilesize
+        ymax = (j+length)*self.tilesize
+        tile = img[xmin:xmax, ymin:ymax, :]
+        tile = obj.render(tile)
+        img[xmin:xmax, ymin:ymax, :] = tile
+        return img
 
-def draw_traj(img, p1, p2, color):
-    r = 1
-    x0 = p1[0]
-    y0 = p1[1]
-    x1 = p2[0]
-    y1 = p2[1]
-    xmin = min(x0, x1) - r
-    xmax = max(x0, x1) + r
-    ymin = min(y0, y1) - r
-    ymax = max(y0, y1) + r
-    for i in range(int(xmin), int(xmax)):
-        for j in range(int(ymin), int(ymax)):
-            img[j,i] = color
-    return img
+    def draw_static_obstacle(self, img, obstacles):
+        for o in obstacles:
+            img = self.draw(img, int(o[1]), int(o[0]), Obstacle())
+        return img
 
-def fill_coords(img, fn, color):
-    """
-    Fill pixels of an image with coordinates matching a filter function
-    """
+    def draw_goal(self, img, agents_goal):
+        for goal in agents_goal:
+            img = self.draw(img, int(goal[1]), int(goal[0]), Goal())
+        return img
 
-    for y in range(img.shape[0]):
-        for x in range(img.shape[1]):
-            yf = (y + 0.5) / img.shape[0]
-            xf = (x + 0.5) / img.shape[1]
-            if fn(xf, yf):
-                img[y, x] = color
+    def draw_agents(self, img, agents_pose):
+        agents_num = len(agents_pose)
+        for i in range(agents_num):
+            pos = agents_pose[i]
+            name = str(i)
+            img = self.draw(img, int(pos[1]), int(pos[0]), Agent(name))
+        return img
+          
+    def draw_dynamic_obs(self, img, obs):
+        for ob in obs:
+            img = self.draw(img, int(ob[1]), int(ob[0]), Dynamic_obs())
+        return img
 
-    return img
+    def draw_obs(self, img, agents_pose, visibility):
+        agents_num = len(agents_pose)
+        for i in range(agents_num):
+            pos = agents_pose[i]
 
-def rotate_fn(fin, cx, cy, theta):
-    def fout(x, y):
-        x = x - cx
-        y = y - cy
+            xmin = max(int(pos[1]-visibility)*self.tilesize, 0)
+            ymin = max(int(pos[0]-visibility)*self.tilesize, 0)
+            xmax = min(int(pos[1]+1+visibility)*self.tilesize, self.tilesize*(self.row+1))
+            ymax = min(int(pos[0]+1+visibility)*self.tilesize, self.tilesize*(self.col+1))
 
-        x2 = cx + x * math.cos(-theta) - y * math.sin(-theta)
-        y2 = cy + y * math.cos(-theta) + x * math.sin(-theta)
+            tile = img[xmin:xmax, ymin:ymax, :]
+            tile = highlight_img(tile)
+            img[xmin:xmax, ymin:ymax, :] = tile
+        return img  
 
-        return fin(x2, y2)
+    def draw_trajectory(self, img, traj):
+      agents_num = len(traj)
+      for idx in range(agents_num):
+          trajectory = traj[idx]
+          for i in range(len(trajectory)-1):
+              if not np.array_equal(trajectory[i], trajectory[i+1]):
+                  p1 = trajectory[i]
+                  p2 = trajectory[i+1]                
+                  img = draw_traj(img, ((p1[0]+0.5)*self.tilesize, (p1[1]+0.5)*self.tilesize), 
+                            ((p2[0]+0.5)*self.tilesize,(p2[1]+0.5)*self.tilesize), self.traj_color[idx])
 
-    return fout
+class Obstacle():
+    def __init__(self):
+        self.color = OBSTACLE_COLOR
+        #self.type = 2
+    def render(self, img):
+      fill_coords(img, point_in_rect(0, 1, 0, 1), self.color)
+      return img      
+      
+class Goal():
+    def __init__(self):
+        self.color = GOAL_COLOR
+        #self.type = 3
+    def render(self, img):
+      fill_coords(img, point_in_rect(0.2, 0.8, 0.2, 0.8), self.color)
+      return img
 
-def point_in_line(x0, y0, x1, y1, r):
-    p0 = np.array([x0, y0])
-    p1 = np.array([x1, y1])
-    dir = p1 - p0
-    dist = np.linalg.norm(dir)
-    dir = dir / dist
-
-    xmin = min(x0, x1) - r
-    xmax = max(x0, x1) + r
-    ymin = min(y0, y1) - r
-    ymax = max(y0, y1) + r
-
-    def fn(x, y):
-        # Fast, early escape test
-        if x < xmin or x > xmax or y < ymin or y > ymax:
-            return False
-
-        q = np.array([x, y])
-        pq = q - p0
-
-        # Closest point on line
-        a = np.dot(pq, dir)
-        a = np.clip(a, 0, dist)
-        p = p0 + a * dir
-
-        dist_to_line = np.linalg.norm(q - p)
-        return dist_to_line <= r
-
-    return fn
-
-def point_in_circle(cx, cy, r):
-    def fn(x, y):
-        return (x-cx)*(x-cx) + (y-cy)*(y-cy) <= r * r
-    return fn
-
-def point_in_rect(xmin, xmax, ymin, ymax):
-    def fn(x, y):
-        return x >= xmin and x <= xmax and y >= ymin and y <= ymax
-    return fn
-
-def point_in_triangle(a, b, c):
-    a = np.array(a)
-    b = np.array(b)
-    c = np.array(c)
-
-    def fn(x, y):
-        v0 = c - a
-        v1 = b - a
-        v2 = np.array((x, y)) - a
-
-        # Compute dot products
-        dot00 = np.dot(v0, v0)
-        dot01 = np.dot(v0, v1)
-        dot02 = np.dot(v0, v2)
-        dot11 = np.dot(v1, v1)
-        dot12 = np.dot(v1, v2)
-
-        # Compute barycentric coordinates
-        inv_denom = 1 / (dot00 * dot11 - dot01 * dot01)
-        u = (dot11 * dot02 - dot01 * dot12) * inv_denom
-        v = (dot00 * dot12 - dot01 * dot02) * inv_denom
-
-        # Check if point is in triangle
-        return (u >= 0) and (v >= 0) and (u + v) < 1
-
-    return fn
-
-def highlight_img(img, alpha=0.30):
-    """
-    Add highlighting to an image
-    """
-
-    blend_img = img - alpha * img
-    blend_img = blend_img.clip(0, 255).astype(np.uint8)
-    img[:, :, :] = blend_img
-    return img
+class Agent():
+    def __init__(self, name = None):
+        self.color = AGENT_COLOR
+        self.name = name
+        self.font = cv2.FONT_HERSHEY_SIMPLEX  
+        #self.type = 4
+    def render(self, img):
+      fill_coords(img, point_in_circle(0.5, 0.5, 0.25), self.color)
+      scale = img.shape[0]/96
+      self.add_text(img,self.name, fontScale = scale, thickness = 1)
+      return img
+   
+    def add_text(self, img, text, fontScale = 1, thickness = 2):
+      textsize = cv2.getTextSize(text, self.font, fontScale, thickness)[0]    
+      textX = int(img.shape[0]/2 - textsize[0]/2)
+      textY = int(img.shape[1]/2 + textsize[1]/2)
+      cv2.putText(img, text, (textX, textY), self.font, fontScale, (0, 0, 0), thickness)
+      
+class Dynamic_obs():
+    def __init__(self):
+        self.color = DYNAMIC_OBS_COLOR
+        #self.type = 5
+    def render(self, img):
+      fill_coords(img, point_in_triangle((0.5, 0.15), (0.9, 0.85), (0.1, 0.85),), self.color)  
+      return img

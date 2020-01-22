@@ -2,14 +2,8 @@ import matplotlib
 import math
 import cv2
 import numpy as np
-from rendering import *
+from rendering import Renderer
 from window import *
-
-OBSTACLE_COLOR = np.array([255,0,0])
-GOAL_COLOR = np.array([255,255,0])
-AGENT_COLOR = np.array([0,255,0])
-DYNAMIC_OBS_COLOR = np.array([0,0,255])
-FREESPACE_COLOR = np.array([255,255,255])
 
 #Map of integers to object type
 IDX_TO_OBJECT = {
@@ -23,47 +17,6 @@ IDX_TO_OBJECT = {
 
 OBJECT_TO_IDX = dict(zip(IDX_TO_OBJECT.values(), IDX_TO_OBJECT.keys()))
 
-class Obstacle():
-    def __init__(self):
-        self.color = OBSTACLE_COLOR
-        self.type = 2
-    def render(self, img):
-      fill_coords(img, point_in_rect(0, 1, 0, 1), self.color)
-      return img      
-      
-class Goal():
-    def __init__(self):
-        self.color = GOAL_COLOR
-        self.type = 3
-    def render(self, img):
-      fill_coords(img, point_in_rect(0.2, 0.8, 0.2, 0.8), self.color)
-      return img
-
-class Agent():
-    def __init__(self, name = None):
-        self.color = AGENT_COLOR
-        self.name = name
-        self.font = cv2.FONT_HERSHEY_SIMPLEX  
-        self.type = 4
-    def render(self, img):
-      fill_coords(img, point_in_circle(0.5, 0.5, 0.25), self.color)
-      scale = img.shape[0]/96
-      self.add_text(img,self.name, fontScale = scale, thickness = 1)
-      return img
-   
-    def add_text(self, img, text, fontScale = 1, thickness = 2):
-      textsize = cv2.getTextSize(text, self.font, fontScale, thickness)[0]    
-      textX = int(img.shape[0]/2 - textsize[0]/2)
-      textY = int(img.shape[1]/2 + textsize[1]/2)
-      cv2.putText(img, text, (textX, textY), self.font, fontScale, (0, 0, 0), thickness)
-      
-class Dynamic_obs():
-    def __init__(self):
-        self.color = DYNAMIC_OBS_COLOR
-        self.type = 5
-    def render(self, img):
-      fill_coords(img, point_in_triangle((0.5, 0.15), (0.9, 0.85), (0.1, 0.85),), self.color)  
-      return img
 
 class GridEnv:
   """Custom Environment that follows gym interface"""
@@ -91,7 +44,8 @@ class GridEnv:
       self.row = map["map"]["dimensions"][1]
       self.col = map["map"]["dimensions"][0]    
       self.background_img = np.ones(shape=(self.row*self.tilesize, self.col * self.tilesize, 3), dtype=np.uint8)*255
-      
+      self.renderer = Renderer(self.row, self.col, self.tilesize, self.traj_color)
+
       #simulation variable
       self.time = 0
       self.descrip = str(self.time)
@@ -104,7 +58,7 @@ class GridEnv:
         self.traj.append([self.agents_pose[i]])
       
       # Draw the goal and static obstacles on the background image
-      self.background_img = self.draw_background(self.background_img)
+      self.background_img = self.renderer.draw_background(self.background_img, self.agents_goal, self.obstacles)
       self.background_grid = self.update_background_grid(self.background_grid)
 
   def reset(self):
@@ -113,7 +67,7 @@ class GridEnv:
       for i in range(self.agents_num):
         self.traj.append([self.agents_pose[i]])
       self.background_img = np.ones(shape=(self.row*self.tilesize, self.col * self.tilesize, 3), dtype=np.uint8)*255
-      self.background_img = self.draw_background(self.background_img)
+      self.background_img = self.renderer.draw_background(self.background_img)
 
   def render(self, show_traj = False, dynamic_obs = None):
       '''
@@ -127,12 +81,12 @@ class GridEnv:
       img = self.background_img.copy()
       
       if dynamic_obs:
-          self.draw_dynamic_obs(img, dynamic_obs)
+          self.renderer.draw_dynamic_obs(img, dynamic_obs)
       if show_traj:
-          self.draw_trajectory(img)
+          self.renderer.draw_trajectory(img, self.traj)
       
-      self.draw_agents(img)
-      self.draw_obs(img)
+      self.renderer.draw_agents(img, self.agents_pose)
+      self.renderer.draw_obs(img, self.agents_pose, self.visibility)
 
       return img
   
@@ -183,10 +137,12 @@ class GridEnv:
       pose_new[0] = max(0, min(self.col-1, pose_new[0]) )
       pose_new[1] = max(0, min(self.row-1, pose_new[1]) )
 
-      color = self.background_img[pose_new[1]*self.tilesize,pose_new[0]*self.tilesize]
+      #color = self.background_img[pose_new[1]*self.tilesize,pose_new[0]*self.tilesize]
+      pose_new_type = self.background_grid[pose_new[1], pose_new[0]]
       
       # Hit the obstacles in the map
-      if (color == OBSTACLE_COLOR).all():
+      #if (color == OBSTACLE_COLOR).all():
+      if pose_new_type == OBJECT_TO_IDX["obstacle"]:
         return np.array([-1,-1])
       else:
         return pose_new
@@ -207,69 +163,6 @@ class GridEnv:
       for o in self.obstacles:
           grid_map[int(o[1])][int(o[0])] = OBJECT_TO_IDX["obstacle"]
       return grid_map
-
-  def draw_background(self, img):
-      img = self.draw_goal(img)
-      img = self.draw_static_obstacle(img)
-      return img
-
-  def draw(self, img, i, j, obj, length = 1):
-      xmin = i*self.tilesize
-      ymin = j*self.tilesize
-      xmax = (i+length)*self.tilesize
-      ymax = (j+length)*self.tilesize
-      
-      tile = img[xmin:xmax, ymin:ymax, :]
-      tile = obj.render(tile)
-      img[xmin:xmax, ymin:ymax, :] = tile
-      return img
-  
-  def draw_static_obstacle(self, img):
-      for o in self.obstacles:
-          img = self.draw(img, int(o[1]), int(o[0]), Obstacle())
-      return img
-  
-  def draw_goal(self, img):
-      for goal in self.agents_goal:
-          img = self.draw(img, int(goal[1]), int(goal[0]), Goal())
-      return img
-
-  def draw_agents(self, img):
-      for i in range(self.agents_num):
-          pos = self.agents_pose[i]
-          name = str(i)
-          img = self.draw(img, int(pos[1]), int(pos[0]), Agent(name))
-      return img
-          
-  def draw_dynamic_obs(self, img, obs):
-      for ob in obs:
-        img = self.draw(img, int(ob[1]), int(ob[0]), Dynamic_obs())
-      return img
-  
-  def draw_obs(self, img):
-      for i in range(self.agents_num):
-          pos = self.agents_pose[i]
-
-          xmin = max(int(pos[1]-self.visibility)*self.tilesize, 0)
-          ymin = max(int(pos[0]-self.visibility)*self.tilesize, 0)
-          xmax = min(int(pos[1]+1+self.visibility)*self.tilesize, self.tilesize*(self.row+1))
-          ymax = min(int(pos[0]+1+self.visibility)*self.tilesize, self.tilesize*(self.col+1))
-
-          tile = img[xmin:xmax, ymin:ymax, :]
-          tile = highlight_img(tile)
-          img[xmin:xmax, ymin:ymax, :] = tile
-      return img  
-
-  def draw_trajectory(self, img):
-      #print("draw trajectory, length: ", len(self.traj))
-      for idx in range(self.agents_num):
-          trajectory = self.traj[idx]
-          for i in range(len(trajectory)-1):
-              if not np.array_equal(trajectory[i], trajectory[i+1]):
-                  p1 = trajectory[i]
-                  p2 = trajectory[i+1]                
-                  img = draw_traj(img, ((p1[0]+0.5)*self.tilesize, (p1[1]+0.5)*self.tilesize), 
-                            ((p2[0]+0.5)*self.tilesize,(p2[1]+0.5)*self.tilesize), self.traj_color[idx])
 
   def get_agents_info(self, agents_info):
       '''
