@@ -50,7 +50,7 @@ class GridEnv:
       self.descrip = str(self.time)
       self.traj = []
       
-      self.background_grid = np.ones(shape=(self.row, self.col), dtype = int)
+      self.background_grid = np.zeros(shape=(self.row, self.col), dtype = int)
       self.current_grid = None
       
       for i in range(self.agents_num):
