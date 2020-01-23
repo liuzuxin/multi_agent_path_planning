@@ -5,23 +5,11 @@ import numpy as np
 from rendering import Renderer
 from window import *
 
-#Map of integers to object type
-IDX_TO_OBJECT = {
-        0   :   "unseen",
-        1   :   "empty",
-        2   :   "obstacle",
-        3   :   "goal",
-        4   :   "agent",
-        5   :   "dynamic obstacle",
-}
-
-OBJECT_TO_IDX = dict(zip(IDX_TO_OBJECT.values(), IDX_TO_OBJECT.keys()))
-
 
 class GridEnv:
   """Custom Environment that follows gym interface"""
 
-  def __init__(self, map, agents_info):
+  def __init__(self, map, agents_info, dynamic_obs_num = 0):
       
       self.window = None #Window("Test")
       #self.window.show(block=False)
@@ -39,8 +27,18 @@ class GridEnv:
       self.font = cv2.FONT_HERSHEY_SIMPLEX    
       self.visibility = 2
       self.traj_color = np.random.randint(256, size=(self.agents_num,3))
+      #Map the grid index to object type.
+      self.idx_to_object = {
+          0   :   "free",
+          1   :   "obstacle",
+          2   :   "agent",
+          3   :   "dynamic obstacle",
+          4   :   "unseen",
+          5   :   "goal",
+      }
+      self.object_to_idx = dict(zip(self.idx_to_object.values(), self.idx_to_object.keys()))
       
-      #initialize canvas   
+      #initialize canvas   0
       self.row = map["map"]["dimensions"][1]
       self.col = map["map"]["dimensions"][0]
       print("row: ", self.row, " col: ", self.col)
@@ -62,6 +60,10 @@ class GridEnv:
       self.background_img = self.renderer.draw_background(self.background_img, self.agents_goal, self.obstacles)
       self.background_grid = self.update_background_grid(self.background_grid)
 
+      #initialize dynamic obstacles
+      self.dynamic_obs_num = dynamic_obs_num
+      self.dynamic_obs_pose = []
+
   def reset(self):
       self.time=0
       self.traj = []
@@ -72,8 +74,6 @@ class GridEnv:
 
   def render(self, show_traj = False, dynamic_obs = None):
       '''
-      Parameters:
-      ----------
         @param [boolean] show_traj : Determine if we render the agents' trajactories.
         @param [boolean] dynamic_obs : TODO, remove this param
 
@@ -95,8 +95,6 @@ class GridEnv:
       '''
       Check if the agent's movement may be conflict with other agents.
 
-      Parameters:
-      ----------
         @param [numpy_array] pose : The idx-th agent's position.
         @param [int] idx : The index of the agent to be checked
 
@@ -116,8 +114,6 @@ class GridEnv:
       '''
       Move the agent and check if the agent will collide with obstacles, 
 
-      Parameters:
-      ----------
         @param [numpy_array] pose : The agent's position.
         @param [string] act : The agent's action.
 
@@ -143,7 +139,7 @@ class GridEnv:
       
       # Hit the obstacles in the map
       #if (color == OBSTACLE_COLOR).all():
-      if pose_new_type == OBJECT_TO_IDX["obstacle"]:
+      if pose_new_type == self.object_to_idx["obstacle"]:
         return np.array([-1,-1])
       else:
         return pose_new
@@ -162,7 +158,7 @@ class GridEnv:
 
   def update_background_grid(self, grid_map):
       for o in self.obstacles:
-          grid_map[int(o[1])][int(o[0])] = OBJECT_TO_IDX["obstacle"]
+          grid_map[int(o[1])][int(o[0])] = self.object_to_idx["obstacle"]
       return grid_map
 
   def get_agents_info(self, agents_info):
@@ -207,7 +203,7 @@ class GridEnv:
           self.agents_pose[i] = pose_new
         pos = self.agents_pose[i]
         # update the agent info on current grid map
-        self.current_grid [int(pos[1])][int(pos[0])] = OBJECT_TO_IDX["agent"]
+        self.current_grid [int(pos[1])][int(pos[0])] = self.object_to_idx["agent"]
           
       # Check if the agents collide with each other
       for i in range(self.agents_num):
