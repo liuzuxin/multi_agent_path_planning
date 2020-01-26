@@ -75,7 +75,7 @@ class Renderer():
                   p1 = trajectory[i]
                   p2 = trajectory[i+1]                
                   img = draw_traj(img, ((p1[0]+0.5)*self.tilesize, (p1[1]+0.5)*self.tilesize), 
-                            ((p2[0]+0.5)*self.tilesize,(p2[1]+0.5)*self.tilesize), self.traj_color[idx])
+                            ((p2[0]+0.5)*self.tilesize,(p2[1]+0.5)*self.tilesize), self.traj_color[idx%len(self.traj_color)])
 
 class Obstacle():
     def __init__(self):

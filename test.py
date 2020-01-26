@@ -39,7 +39,7 @@ class Loop():
     self.goals = self.env.agents_goal
   
   def step(self):
-    dynamic_obs = [np.array([26,23]), np.array([68,24]),np.array([37,4]), np.array([22,47])]
+    dynamic_obs = True #[np.array([26,23]), np.array([68,24]),np.array([37,4]), np.array([22,47])]
     obs = None
     static_map = None
 
@@ -51,7 +51,7 @@ class Loop():
         action = self.planner.plan(self.poses, self.steps, obs=obs)
 
         self.poses, obs, static_map = self.env.step(action)
-        img = self.env.render(show_traj = True, dynamic_obs = dynamic_obs)
+        img = self.env.render(show_traj = False, dynamic_obs = dynamic_obs)
         self.window.show_img(img)
     else: 
         print("done")
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     max_step = max(max_step, trajectories[-1]["t"])
 
   # environment initilization 
-  env = GridEnv.GridEnv(map, agents_info)
+  env = GridEnv.GridEnv(map, agents_info, dynamic_obs_num=50)
   window = Window('Test')
   window.reg_key_handler(key_handler)
   #env.window = window
