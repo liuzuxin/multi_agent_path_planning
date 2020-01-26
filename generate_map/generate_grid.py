@@ -10,6 +10,8 @@ from PIL import Image
 import numpy as np
 import yaml
 import matplotlib.pyplot as plt
+
+
 img = Image.open('map.png').convert('L')
 
 np_img = np.array(img)

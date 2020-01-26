@@ -23,9 +23,9 @@ class GridEnv:
       
       print("Agents number: ", self.agents_num)
       #Env constant
-      self.tilesize = 32
+      self.tilesize = 16
       self.font = cv2.FONT_HERSHEY_SIMPLEX    
-      self.visibility = 2
+      self.visibility = 5
       self.traj_color = np.random.randint(256, size=(self.agents_num,3))
       #Map the grid index to object type.
       self.idx_to_object = {

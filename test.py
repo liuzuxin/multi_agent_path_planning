@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 import math
-import planningEnv
 import GridEnv
 import time
 from window import *
@@ -40,7 +39,7 @@ class Loop():
     self.goals = self.env.agents_goal
   
   def step(self):
-    dynamic_obs = [np.array([0,2]), np.array([4,1])]
+    dynamic_obs = [np.array([26,23]), np.array([68,24]),np.array([37,4]), np.array([22,47])]
     obs = None
     static_map = None
 

@@ -1,5 +1,5 @@
 map:
-    dimensions: [64, 32]
+    dimensions: [32, 32]
     obstacles:
     - !!python/tuple [13, 20]
     - !!python/tuple [29, 6]
