@@ -46,9 +46,9 @@ class Loop():
     if self.steps < self.max_step:
         self.steps += 1
 
-        #action = ['v']*self.agents_num
+        action = ['v']*self.agents_num
         # Comment the code below and uncomment the code above to try.
-        action = self.planner.plan(self.poses, self.steps, obs=obs)
+        #action = self.planner.plan(self.poses, self.steps, obs=obs)
 
         self.poses, obs, static_map = self.env.step(action)
         img = self.env.render(show_traj = False, dynamic_obs = dynamic_obs)
@@ -86,7 +86,7 @@ if __name__ == "__main__":
   window = Window('Test')
   window.reg_key_handler(key_handler)
   #env.window = window
-  
+  max_step = 10000
   loop=Loop( window, env, schedule, max_step)
   
   #BLocking event loop

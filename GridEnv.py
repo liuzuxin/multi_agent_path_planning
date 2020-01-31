@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from rendering import Renderer
 from window import *
-from robot import Robot
+from robot import RobotManager
 
 class GridEnv:
   """Custom Environment that follows gym interface"""
@@ -64,26 +64,7 @@ class GridEnv:
       self.dynamic_obs_num = dynamic_obs_num
       self.dynamic_obs_pose = []
       self.dynamic_obs_future_traj = []
-      self.dynamic_obs = self.init_dynamic_obs(dynamic_obs_num)
-
-  def init_dynamic_obs(self, num):
-      dynamic_obs = []
-      self.dynamic_obs_pose = []
-      self.dynamic_obs_future_traj = []
-      current_grid = self.background_grid.copy()
-      print("current_grid shape: ",current_grid.shape)
-      for i in range(num):
-        robot = Robot(self.background_grid, self.idx_to_object)
-        start_pose = robot.sample_free_space(current_grid)
-        print("sample: ", start_pose)
-        robot.set_pose(start_pose)
-        self.dynamic_obs_pose.append(start_pose)
-        current_grid[start_pose[1],start_pose[0]] = self.object_to_idx["dynamic obstacle"]
-        goal = robot.sample_free_space(current_grid)
-        robot.plan( goal)
-        dynamic_obs.append(robot)
-        self.dynamic_obs_future_traj.append(robot.future_path)
-      return dynamic_obs
+      self.dynamic_obs_manager = RobotManager(self.background_grid, self.idx_to_object, self.dynamic_obs_num)
 
   def reset(self):
       self.time=0
@@ -128,24 +109,6 @@ class GridEnv:
         if (pose == self.agents_pose[i]).all():
           return True
       return False
-
-  def move_dynamic_obs(self, grid):
-    # update the dynamic obstacle positions.
-      self.dynamic_obs_pose = []
-      self.dynamic_obs_future_traj=[]
-      for robot in self.dynamic_obs:
-        if robot.step == 0:
-          # Assign a new goal for the robot
-          goal = robot.sample_free_space(grid)
-          robot.plan(goal)
-          self.dynamic_obs_pose.append(robot.pose)
-          grid[robot.pose[1],robot.pose[0]] = self.object_to_idx["dynamic obstacle"]
-          self.dynamic_obs_future_traj.append(robot.future_path)
-        else:
-          robot.step_next_pose()
-          self.dynamic_obs_pose.append(robot.pose)
-          grid[robot.pose[1],robot.pose[0]] = self.object_to_idx["dynamic obstacle"]
-          self.dynamic_obs_future_traj.append(robot.future_path)
 
   def move_agents(self, pose, act):
       '''
@@ -225,8 +188,10 @@ class GridEnv:
       
       self.current_grid = self.background_grid.copy()
       
-      #TODO: let the dynamic obstacle move first
-      self.move_dynamic_obs(self.current_grid)
+      #Let the dynamic obstacle move first
+      self.dynamic_obs_manager.move_robots(self.current_grid)
+      self.dynamic_obs_pose = self.dynamic_obs_manager.robot_poses
+      self.dynamic_obs_future_traj = self.dynamic_obs_manager.robot_future_traj
 
       # Move the agents one by one
       for i in range(self.agents_num):

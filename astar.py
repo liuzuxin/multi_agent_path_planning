@@ -28,7 +28,6 @@ class A_star():
         self.cost_map = None 
         self.closed_map = None
         self.path = None
-        self.step_cost = 1
         self.idx_to_object = idx_to_object
         self.object_to_idx = dict(zip(self.idx_to_object.values(), self.idx_to_object.keys()))
         self.object_to_cost = {
@@ -66,7 +65,7 @@ class A_star():
         '''
         if not self.valid_goal(goal):
             return None
-        start_node = Node(pose, g_value=0, h_value=self.estimate_heuristic(pose, goal))
+        start_node = Node(pose, g_value=0, h_value=self.eucilidean_distance(pose, goal))
         heappush(self.open_list, start_node)
         while self.open_list:
             current_node = heappop(self.open_list)
@@ -92,8 +91,17 @@ class A_star():
         self.reset()
         return None
 
-    def estimate_heuristic(self, start, end):
-        return abs(start[0]-end[0]) + abs(start[1]-end[1])
+    #def estimate_heuristic(self, start, end):
+    #    return max(abs(start[0]-end[0]), abs(start[1]-end[1]))
+
+    def diagonal_distance(self, start, end):
+    	return max(abs(start[0]-end[0]), abs(start[1]-end[1]))
+
+    def manhattan_distance(self, start, end):
+    	return (abs(start[0]-end[0]) + abs(start[1]-end[1]))
+
+    def eucilidean_distance(self, start, end):
+    	return ( (start[0]-end[0])**2+(start[1]-end[1])**2 )**0.5
 
     def goal_reached(self, pose, goal):
         return (pose==goal).all()
@@ -119,16 +127,20 @@ class A_star():
         traj.reverse()
         return traj
 
-    def get_successor(self, node, goal):
+    def get_successor(self, node, goal, mode = 8):
         # return a list of node successors
         x_ = node.x
         y_ = node.y
-        pose_list = [ (x_+1,y_), (x_-1,y_), (x_, y_+1), (x_,y_-1) ]
+        heuristic = self.manhattan_distance
+        pose_list = [(x_+1,y_), (x_-1,y_), (x_, y_+1), (x_,y_-1)]
+        if mode==8:
+        	pose_list = [ (x_+1,y_), (x_-1,y_), (x_, y_+1), (x_,y_-1) ,(x_+1,y_+1), (x_-1,y_-1), (x_-1, y_+1), (x_+1,y_-1) ]
+        	heuristic = self.diagonal_distance
         successor_list = []
         for x, y in pose_list:
             if 0<=x<self.col and 0<=y< self.row and self.closed_map[y,x]==0:
-                h_value = self.estimate_heuristic([x, y],goal)
-                g_value = node.g_value+self.step_cost+self.cost_map[y,x]
+                h_value = heuristic([x, y],goal)
+                g_value = node.g_value+self.eucilidean_distance([x_,y_],[x,y])+self.cost_map[y,x]
                 new_node = Node(np.array([x,y]), g_value, h_value)
                 successor_list.append(new_node)
                 self.closed_map[y,x]=-1
