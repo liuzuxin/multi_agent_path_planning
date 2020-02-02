@@ -20,17 +20,27 @@ def downsample(img, factor):
 
 def draw_traj(img, p1, p2, color):
     r = 1
-    x0 = p1[0]
-    y0 = p1[1]
-    x1 = p2[0]
-    y1 = p2[1]
-    xmin = min(x0, x1) - r
-    xmax = max(x0, x1) + r
-    ymin = min(y0, y1) - r
-    ymax = max(y0, y1) + r
-    for i in range(int(xmin), int(xmax)):
-        for j in range(int(ymin), int(ymax)):
-            img[j,i] = color
+    x0 = int(p1[0])
+    y0 = int(p1[1])
+    x1 = int(p2[0])
+    y1 = int(p2[1])    
+    if (x0 == x1 or y1 == y0): ##line is either horizontal or vertical
+        xmin = min(x0, x1) - r
+        xmax = max(x0, x1) + r
+        ymin = min(y0, y1) - r
+        ymax = max(y0, y1) + r
+        for i in range(int(xmin), int(xmax)):
+            for j in range(int(ymin), int(ymax)):
+                img[j,i] = color
+    else:##line is diagonal
+        left = min(p1,p2)
+        right = max(p1,p2)
+        ydir = 1 if right[1]>left[1] else -1
+        
+        for i in range(int(left[0]), int(right[0])+1):
+            curr_y = int(left[1] + (i-left[0]) * ydir)
+            img[curr_y, i] = color
+            
     return img
 
 def fill_coords(img, fn, color):
